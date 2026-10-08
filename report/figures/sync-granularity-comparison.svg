@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+<title id="title">Synchronization granularity comparison</title>
+<desc id="desc">Average encoder wall time; lower is better</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#172033}
+.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#536078}
+.axis{font-size:12px}.axis-title{font-size:14px;font-weight:600}
+.value{font-size:12px;font-weight:600}.legend{font-size:13px}
+.grid{stroke:#dbe1ea;stroke-width:1}.frame{fill:#fff;stroke:#aeb8c7;stroke-width:1}
+</style>
+<rect width="900" height="520" fill="#ffffff"/>
+<text class="title" x="88" y="34">Synchronization granularity comparison</text>
+<text class="subtitle" x="88" y="55">Average encoder wall time; lower is better</text>
+<rect class="frame" x="88" y="72" width="776" height="372"/>
+<line class="grid" x1="88" y1="444.00" x2="864" y2="444.00"/>
+<text class="axis" x="78" y="448.00" text-anchor="end">0.0</text>
+<line class="grid" x1="88" y1="369.60" x2="864" y2="369.60"/>
+<text class="axis" x="78" y="373.60" text-anchor="end">0.1</text>
+<line class="grid" x1="88" y1="295.20" x2="864" y2="295.20"/>
+<text class="axis" x="78" y="299.20" text-anchor="end">0.2</text>
+<line class="grid" x1="88" y1="220.80" x2="864" y2="220.80"/>
+<text class="axis" x="78" y="224.80" text-anchor="end">0.3</text>
+<line class="grid" x1="88" y1="146.40" x2="864" y2="146.40"/>
+<text class="axis" x="78" y="150.40" text-anchor="end">0.4</text>
+<line class="grid" x1="88" y1="72.00" x2="864" y2="72.00"/>
+<text class="axis" x="78" y="76.00" text-anchor="end">0.6</text>
+<text class="axis-title" x="22" y="258.00" text-anchor="middle" transform="rotate(-90 22 258.00)">Average wall time (seconds)</text>
+<line class="grid" x1="130.00" y1="72" x2="130.00" y2="444"/>
+<text class="axis" x="130.00" y="468" text-anchor="middle">1</text>
+<line class="grid" x1="360.67" y1="72" x2="360.67" y2="444"/>
+<text class="axis" x="360.67" y="468" text-anchor="middle">2</text>
+<line class="grid" x1="591.33" y1="72" x2="591.33" y2="444"/>
+<text class="axis" x="591.33" y="468" text-anchor="middle">4</text>
+<line class="grid" x1="822.00" y1="72" x2="822.00" y2="444"/>
+<text class="axis" x="822.00" y="468" text-anchor="middle">8</text>
+<text class="axis-title" x="476.00" y="500" text-anchor="middle">Worker threads</text>
+<polyline points="130.00,113.93 360.67,273.56 591.33,334.43 822.00,354.72" fill="none" stroke="#2563eb" stroke-width="3"/>
+<circle cx="130.00" cy="113.93" r="5" fill="#2563eb"/>
+<circle cx="360.67" cy="273.56" r="5" fill="#2563eb"/>
+<circle cx="591.33" cy="334.43" r="5" fill="#2563eb"/>
+<circle cx="822.00" cy="354.72" r="5" fill="#2563eb"/>
+<line x1="429" y1="51" x2="455" y2="51" stroke="#2563eb" stroke-width="3"/>
+<text class="legend" x="463" y="55">Granularity 1</text>
+<polyline points="130.00,113.93 360.67,272.20 591.33,315.49 822.00,352.01" fill="none" stroke="#dc2626" stroke-width="3"/>
+<circle cx="130.00" cy="113.93" r="5" fill="#dc2626"/>
+<circle cx="360.67" cy="272.20" r="5" fill="#dc2626"/>
+<circle cx="591.33" cy="315.49" r="5" fill="#dc2626"/>
+<circle cx="822.00" cy="352.01" r="5" fill="#dc2626"/>
+<line x1="574" y1="51" x2="600" y2="51" stroke="#dc2626" stroke-width="3"/>
+<text class="legend" x="608" y="55">Granularity 2</text>
+<polyline points="130.00,117.99 360.67,274.91 591.33,320.90 822.00,350.66" fill="none" stroke="#059669" stroke-width="3"/>
+<circle cx="130.00" cy="117.99" r="5" fill="#059669"/>
+<circle cx="360.67" cy="274.91" r="5" fill="#059669"/>
+<circle cx="591.33" cy="320.90" r="5" fill="#059669"/>
+<circle cx="822.00" cy="350.66" r="5" fill="#059669"/>
+<line x1="719" y1="51" x2="745" y2="51" stroke="#059669" stroke-width="3"/>
+<text class="legend" x="753" y="55">Granularity 4</text>
+</svg>

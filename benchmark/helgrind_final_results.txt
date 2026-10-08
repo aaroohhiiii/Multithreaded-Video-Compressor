@@ -1,0 +1,11 @@
+Final release audit
+Environment: Valgrind/Helgrind 3.18.1, x86-64 Ubuntu container
+Options: --history-level=full --fair-sched=yes --error-exitcode=99
+Build: GCC, C11, -Wall -Wextra -Wpedantic -Werror, debug symbols
+
+Full retained-file pipeline, 32x32 YUV420 fixture, 4 encoder threads:
+  video_compressor: 0 errors from 0 contexts
+  video_decoder:    0 errors from 0 contexts
+  round-trip PSNR:  49.15 dB (MSE 0.7917)
+
+The complete test suite also passed in the isolated clean-source build.

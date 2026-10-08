@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+<title id="title">Encoder speedup by thread count</title>
+<desc id="desc">Three 1280x720 YUV420 frames; five timed runs per point</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#172033}
+.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#536078}
+.axis{font-size:12px}.axis-title{font-size:14px;font-weight:600}
+.value{font-size:12px;font-weight:600}.legend{font-size:13px}
+.grid{stroke:#dbe1ea;stroke-width:1}.frame{fill:#fff;stroke:#aeb8c7;stroke-width:1}
+</style>
+<rect width="900" height="520" fill="#ffffff"/>
+<text class="title" x="88" y="34">Encoder speedup by thread count</text>
+<text class="subtitle" x="88" y="55">Three 1280x720 YUV420 frames; five timed runs per point</text>
+<rect class="frame" x="88" y="72" width="776" height="372"/>
+<line class="grid" x1="88" y1="444.00" x2="864" y2="444.00"/>
+<text class="axis" x="78" y="448.00" text-anchor="end">0.0</text>
+<line class="grid" x1="88" y1="369.60" x2="864" y2="369.60"/>
+<text class="axis" x="78" y="373.60" text-anchor="end">1.7</text>
+<line class="grid" x1="88" y1="295.20" x2="864" y2="295.20"/>
+<text class="axis" x="78" y="299.20" text-anchor="end">3.4</text>
+<line class="grid" x1="88" y1="220.80" x2="864" y2="220.80"/>
+<text class="axis" x="78" y="224.80" text-anchor="end">5.2</text>
+<line class="grid" x1="88" y1="146.40" x2="864" y2="146.40"/>
+<text class="axis" x="78" y="150.40" text-anchor="end">6.9</text>
+<line class="grid" x1="88" y1="72.00" x2="864" y2="72.00"/>
+<text class="axis" x="78" y="76.00" text-anchor="end">8.6</text>
+<text class="axis-title" x="22" y="258.00" text-anchor="middle" transform="rotate(-90 22 258.00)">Speedup relative to one thread (×)</text>
+<line class="grid" x1="130.00" y1="72" x2="130.00" y2="444"/>
+<text class="axis" x="130.00" y="468" text-anchor="middle">1</text>
+<line class="grid" x1="360.67" y1="72" x2="360.67" y2="444"/>
+<text class="axis" x="360.67" y="468" text-anchor="middle">2</text>
+<line class="grid" x1="591.33" y1="72" x2="591.33" y2="444"/>
+<text class="axis" x="591.33" y="468" text-anchor="middle">4</text>
+<line class="grid" x1="822.00" y1="72" x2="822.00" y2="444"/>
+<text class="axis" x="822.00" y="468" text-anchor="middle">8</text>
+<text class="axis-title" x="476.00" y="500" text-anchor="middle">Worker threads</text>
+<polyline points="130.00,400.74 360.67,355.54 591.33,319.77 822.00,288.28" fill="none" stroke="#2563eb" stroke-width="3"/>
+<circle cx="130.00" cy="400.74" r="5" fill="#2563eb"/>
+<text class="value" x="130.00" y="389.74" text-anchor="middle">1.00</text>
+<circle cx="360.67" cy="355.54" r="5" fill="#2563eb"/>
+<text class="value" x="360.67" y="344.54" text-anchor="middle">2.04</text>
+<circle cx="591.33" cy="319.77" r="5" fill="#2563eb"/>
+<text class="value" x="591.33" y="308.77" text-anchor="middle">2.87</text>
+<circle cx="822.00" cy="288.28" r="5" fill="#2563eb"/>
+<text class="value" x="822.00" y="277.28" text-anchor="middle">3.60</text>
+<line x1="574" y1="51" x2="600" y2="51" stroke="#2563eb" stroke-width="3"/>
+<text class="legend" x="608" y="55">Measured</text>
+<polyline points="130.00,400.74 360.67,357.49 591.33,270.98 822.00,97.95" fill="none" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/>
+<circle cx="130.00" cy="400.74" r="5" fill="#dc2626"/>
+<circle cx="360.67" cy="357.49" r="5" fill="#dc2626"/>
+<circle cx="591.33" cy="270.98" r="5" fill="#dc2626"/>
+<circle cx="822.00" cy="97.95" r="5" fill="#dc2626"/>
+<line x1="719" y1="51" x2="745" y2="51" stroke="#dc2626" stroke-width="3" stroke-dasharray="7 5"/>
+<text class="legend" x="753" y="55">Ideal</text>
+</svg>

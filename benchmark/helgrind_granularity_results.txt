@@ -1,0 +1,10 @@
+Helgrind 3.18.1, x86-64 Ubuntu container
+Options: --history-level=full --fair-sched=yes --error-exitcode=99
+
+SYNC_GRANULARITY=2
+  test/test_threadpool: 0 errors from 0 contexts
+  video_compressor (32x32, 4 threads): 0 errors from 0 contexts
+
+SYNC_GRANULARITY=4
+  test/test_threadpool: 0 errors from 0 contexts
+  video_compressor (32x32, 4 threads): 0 errors from 0 contexts

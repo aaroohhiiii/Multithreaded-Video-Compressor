@@ -1,0 +1,3 @@
+prediction,input_bytes,output_bytes,compression_ratio,space_saving_percent
+enabled,4147200,105453,39.327473,97.457248
+disabled,4147200,150083,27.632710,96.381101

@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520" role="img" aria-labelledby="title desc">
+<title id="title">Compression benefit of causal prediction</title>
+<desc id="desc">Same 4,147,200-byte input and codec settings; higher is better</desc>
+<style>
+text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#172033}
+.title{font-size:24px;font-weight:700}.subtitle{font-size:13px;fill:#536078}
+.axis{font-size:12px}.axis-title{font-size:14px;font-weight:600}
+.value{font-size:12px;font-weight:600}.legend{font-size:13px}
+.grid{stroke:#dbe1ea;stroke-width:1}.frame{fill:#fff;stroke:#aeb8c7;stroke-width:1}
+</style>
+<rect width="900" height="520" fill="#ffffff"/>
+<text class="title" x="88" y="34">Compression benefit of causal prediction</text>
+<text class="subtitle" x="88" y="55">Same 4,147,200-byte input and codec settings; higher is better</text>
+<rect class="frame" x="88" y="72" width="776" height="372"/>
+<line class="grid" x1="88" y1="444.00" x2="864" y2="444.00"/>
+<text class="axis" x="78" y="448.00" text-anchor="end">0.0</text>
+<line class="grid" x1="88" y1="369.60" x2="864" y2="369.60"/>
+<text class="axis" x="78" y="373.60" text-anchor="end">9.3</text>
+<line class="grid" x1="88" y1="295.20" x2="864" y2="295.20"/>
+<text class="axis" x="78" y="299.20" text-anchor="end">18.6</text>
+<line class="grid" x1="88" y1="220.80" x2="864" y2="220.80"/>
+<text class="axis" x="78" y="224.80" text-anchor="end">27.8</text>
+<line class="grid" x1="88" y1="146.40" x2="864" y2="146.40"/>
+<text class="axis" x="78" y="150.40" text-anchor="end">37.1</text>
+<line class="grid" x1="88" y1="72.00" x2="864" y2="72.00"/>
+<text class="axis" x="78" y="76.00" text-anchor="end">46.4</text>
+<text class="axis-title" x="22" y="258.00" text-anchor="middle" transform="rotate(-90 22 258.00)">Compression ratio (input bytes / output bytes)</text>
+<rect x="188.88" y="128.75" width="186.24" height="315.25" fill="#2563eb"/>
+<text class="value" x="282.00" y="116.75" text-anchor="middle">39.33:1</text>
+<text class="axis-title" x="282.00" y="469" text-anchor="middle">Prediction enabled</text>
+<text class="axis" x="282.00" y="489" text-anchor="middle">105,453 output bytes</text>
+<rect x="576.88" y="222.49" width="186.24" height="221.51" fill="#dc2626"/>
+<text class="value" x="670.00" y="210.49" text-anchor="middle">27.63:1</text>
+<text class="axis-title" x="670.00" y="469" text-anchor="middle">Prediction disabled</text>
+<text class="axis" x="670.00" y="489" text-anchor="middle">150,083 output bytes</text>
+</svg>
