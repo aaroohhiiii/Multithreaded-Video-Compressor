@@ -6,6 +6,11 @@ causal block prediction, wavefront scheduling, and ordered frame output.
 The architecture, design-decision timeline, validation evidence, and benchmark
 figures are collected in [`DAY18_REPORT.md`](DAY18_REPORT.md).
 
+The complete professional write-up—including literature basis, implementation
+pseudocode, step-by-step difficulties and lessons, theoretical analysis, and
+measured evaluation—is in
+[`PROJECT_TECHNICAL_REPORT.md`](PROJECT_TECHNICAL_REPORT.md).
+
 For a live demonstration from an ordinary video file, run:
 
 ```sh
