@@ -11,6 +11,9 @@ pseudocode, step-by-step difficulties and lessons, theoretical analysis, and
 measured evaluation—is in
 [`PROJECT_TECHNICAL_REPORT.md`](PROJECT_TECHNICAL_REPORT.md).
 
+macOS users running the project from VS Code can follow
+[`MACOS_VSCODE_RUN_GUIDE.md`](MACOS_VSCODE_RUN_GUIDE.md).
+
 For a live demonstration from an ordinary video file, run:
 
 ```sh
