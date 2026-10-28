@@ -19,6 +19,7 @@ static const int quantization_table[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE] = {
     {72, 92, 95, 98, 112, 100, 103, 99}
 };
 
+/* Calculates the byte size of one packed YUV420 frame safely. */
 static int frame_size(const Frame *frame, size_t *size)
 {
     size_t luma_size;
@@ -45,6 +46,7 @@ static int frame_size(const Frame *frame, size_t *size)
     return 1;
 }
 
+/* Returns the start of the requested Y, U, or V plane in orig or recon. */
 uint8_t *frame_plane(Frame *frame, FrameBuffer buffer, FramePlane plane)
 {
     uint8_t *base;
@@ -87,6 +89,7 @@ uint8_t *frame_plane(Frame *frame, FrameBuffer buffer, FramePlane plane)
     }
 }
 
+/* Reads one raw frame into orig and clears recon for later reconstruction. */
 ReadFrameResult read_frame(FILE *input, Frame *frame)
 {
     uint8_t *orig;
@@ -151,6 +154,7 @@ ReadFrameResult read_frame(FILE *input, Frame *frame)
     return READ_FRAME_OK;
 }
 
+/* Builds the orthonormal cosine basis used by the DCT and inverse DCT. */
 static void build_dct_basis(double basis[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
 {
     const double pi = acos(-1.0);
@@ -168,6 +172,7 @@ static void build_dct_basis(double basis[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
     }
 }
 
+/* Converts an 8x8 spatial residual block into frequency coefficients. */
 void dct_transform(const int input[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE],
                    double output[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
 {
@@ -204,6 +209,7 @@ void dct_transform(const int input[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE],
     }
 }
 
+/* Converts 8x8 frequency coefficients back into spatial residual values. */
 void inverse_dct_transform(
     const double input[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE],
     double output[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
@@ -242,6 +248,7 @@ void inverse_dct_transform(
     }
 }
 
+/* Divides and rounds DCT coefficients using the fixed quantization table. */
 void quantize_block(
     const double input[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE],
     int output[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
@@ -265,6 +272,7 @@ void quantize_block(
     }
 }
 
+/* Predicts a block from reconstructed top and left boundary pixels. */
 int predict_from_neighbors(Frame *frame, int block_row, int block_col)
 {
 #if ENABLE_PREDICTION == 0
@@ -322,6 +330,7 @@ int predict_from_neighbors(Frame *frame, int block_row, int block_col)
 #endif
 }
 
+/* Restores approximate DCT coefficients from their quantized values. */
 void dequantize_block(
     const int input[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE],
     double output[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
@@ -337,6 +346,7 @@ void dequantize_block(
     }
 }
 
+/* Zig-zag scans a block and stores zero runs as compact RLE pairs. */
 size_t rle_encode(
     const int quantized[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE],
     RLEPair output[DCT_BLOCK_SIZE * DCT_BLOCK_SIZE])
@@ -394,11 +404,13 @@ typedef struct BitWriter {
     size_t capacity;
 } BitWriter;
 
+/* Reports whether two RLE symbols have the same run length and value. */
 static int same_rle_pair(RLEPair left, RLEPair right)
 {
     return left.zero_count == right.zero_count && left.value == right.value;
 }
 
+/* Appends one bit to a dynamically growing packed bit buffer. */
 static int append_bit(BitWriter *writer, int bit)
 {
     size_t byte_index = writer->bit_count / 8U;
@@ -431,6 +443,7 @@ static int append_bit(BitWriter *writer, int bit)
     return 1;
 }
 
+/* Frees every allocation owned by a Huffman bitstream. */
 void free_huffman_bitstream(HuffmanBitstream *bitstream)
 {
     if (bitstream == NULL) {
@@ -442,6 +455,7 @@ void free_huffman_bitstream(HuffmanBitstream *bitstream)
     memset(bitstream, 0, sizeof *bitstream);
 }
 
+/* Builds a Huffman tree from RLE frequencies and writes compact codes. */
 int huffman_encode(const RLEPair *input, size_t input_count,
                    HuffmanBitstream *output)
 {
@@ -579,6 +593,7 @@ failure:
     return 0;
 }
 
+/* Writes a 32-bit integer in a portable big-endian byte order. */
 static int write_u32(FILE *output, uint32_t value)
 {
     uint8_t bytes[4] = {
@@ -591,6 +606,7 @@ static int write_u32(FILE *output, uint32_t value)
     return fwrite(bytes, 1U, sizeof bytes, output) == sizeof bytes;
 }
 
+/* Writes a 64-bit integer in a portable big-endian byte order. */
 static int write_u64(FILE *output, uint64_t value)
 {
     uint8_t bytes[8] = {
@@ -607,6 +623,7 @@ static int write_u64(FILE *output, uint64_t value)
     return fwrite(bytes, 1U, sizeof bytes, output) == sizeof bytes;
 }
 
+/* Serializes one self-contained compressed FRM1 frame record. */
 int write_bitstream(FILE *output, int frame_number, uint32_t block_count,
                     const HuffmanBitstream *bitstream)
 {
@@ -642,6 +659,7 @@ int write_bitstream(FILE *output, int frame_number, uint32_t block_count,
     return fwrite(bitstream->data, 1U, byte_count, output) == byte_count;
 }
 
+/* Rebuilds one pixel block and stores it in the reconstructed frame. */
 void reconstruct_block(Frame *frame, int block_row, int block_col,
                        Block predicted, Block residual)
 {

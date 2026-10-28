@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 
+/* Initializes row progress, the mutex, and the wavefront condition variable. */
 int wavefront_init(WavefrontSync *sync)
 {
     int result;
@@ -24,6 +25,7 @@ int wavefront_init(WavefrontSync *sync)
     return 0;
 }
 
+/* Destroys a wavefront's mutex and condition variable. */
 int wavefront_destroy(WavefrontSync *sync)
 {
     int condition_result;
@@ -37,6 +39,7 @@ int wavefront_destroy(WavefrontSync *sync)
     return condition_result != 0 ? condition_result : mutex_result;
 }
 
+/* Waits until the block directly above the requested block is published. */
 int wavefront_wait_for_dependency(WavefrontSync *sync, int row, int col)
 {
     int result;
@@ -62,6 +65,7 @@ int wavefront_wait_for_dependency(WavefrontSync *sync, int row, int col)
     return pthread_mutex_unlock(&sync->mutex);
 }
 
+/* Publishes completed row progress and wakes all dependency waiters. */
 int wavefront_mark_done(WavefrontSync *sync, int row, int col)
 {
     int result;

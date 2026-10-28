@@ -23,6 +23,7 @@ struct ReorderBuffer {
     int error_code;
 };
 
+/* Writes ready frame slots strictly in increasing frame-number order. */
 static void *writer_loop(void *argument)
 {
     ReorderBuffer *buffer = argument;
@@ -64,6 +65,7 @@ static void *writer_loop(void *argument)
     }
 }
 
+/* Allocates frame slots and starts the ordered writer thread. */
 ReorderBuffer *reorder_create(FILE *output, size_t frame_count)
 {
     ReorderBuffer *buffer;
@@ -114,6 +116,7 @@ ReorderBuffer *reorder_create(FILE *output, size_t frame_count)
     return buffer;
 }
 
+/* Transfers a completed frame bitstream into its numbered reorder slot. */
 int reorder_submit(ReorderBuffer *buffer, int frame_number,
                    uint32_t block_count, HuffmanBitstream *bitstream)
 {
@@ -144,6 +147,7 @@ int reorder_submit(ReorderBuffer *buffer, int frame_number,
     }
 }
 
+/* Records a pipeline error and wakes the writer so it can stop. */
 void reorder_abort(ReorderBuffer *buffer, int error_code)
 {
     if (buffer == NULL) {
@@ -158,6 +162,7 @@ void reorder_abort(ReorderBuffer *buffer, int error_code)
     pthread_mutex_unlock(&buffer->mutex);
 }
 
+/* Joins the writer, flushes output, and frees the reorder buffer. */
 int reorder_finish(ReorderBuffer *buffer)
 {
     int result = 0;

@@ -1,0 +1,598 @@
+
+===== PAGE 1 =====
+DESIGN, IMPLEMENTATION, AND
+EVALUATION OF A MULTITHREADED
+PREDICTIVE VIDEO COMPRESSOR
+A repository-grounded technical report and evidence audit
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Project: Multithreaded Video Compressor
+Student: Sujai Shukla
+Roll Number: S20240030403
+Institution: Indian Institute of Information Technology, Sri City
+Course: [Course Name]
+Faculty: [Faculty Name]
+Report date: 10 October 2026
+Primary source: github.com/aaroohhiiii/Multithreaded-Video-Compressor
+
+===== PAGE 2 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+Abstract
+This report analyses the public Multithreaded Video Compressor repository as a C11/POSIX-
+threads educational codec. The encoder accepts raw planar 8-bit YUV420 data, divides each
+plane into 8×8 blocks, predicts blocks from reconstructed top and left boundaries, transforms
+residuals using a separable orthonormal DCT-II, quantizes coefficients, applies zig-zag run-
+length encoding, and Huffman-codes the per-frame symbol stream. A bounded pthread work
+queue schedules block-row jobs; mutex-protected progress and condition-variable broadcasts
+enforce the top-neighbour dependency; a separate reorder writer preserves frame-number
+order. The resulting `FRM1` stream is project-specific and is not a JPEG or H.264 bitstream.
+The retained benchmark CSVs support an original one-to-eight-worker speedup of 3.60×
+(0.540 s to 0.150 s) for a three-frame 1280×720 input. The same input size (4,147,200 bytes)
+and retained compression-comparison CSV support 105,453 output bytes with prediction
+enabled (39.33:1; 97.46% space saving) and 150,083 bytes with prediction disabled (27.63:1;
+96.38% space saving). The later synchronization-granularity campaign is treated separately
+because its averages come from another run campaign. Source and retained-data arithmetic
+were audited, but an executable clone and the production input/output samples were not
+available locally for rerunning tests or recomputing PSNR. Repository-reported test and
+Helgrind outcomes are therefore clearly distinguished from independently reproduced
+evidence.
+Keywords: video compression, YUV420, discrete cosine transform, Huffman coding,
+pthreads, wavefront scheduling, performance measurement.
+Evidence and scope note
+No separate professor-issued rubric or previously generated report file was attached for direct
+redlining. This report is built from scratch using the supplied requirements, the public
+repository files and CSVs, and verified external literature. Missing course/faculty details
+remain placeholders. Static code inspection and arithmetic cross-checks were possible
+through the public source; local compilation, execution, rendering of the encoder output, and
+race detection were not reproduced because the shell could not resolve GitHub and the
+corresponding production media files were not available in the accessible workspace.
+Repository-grounded review • 2
+
+===== PAGE 3 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+Contents
+Abstract and evidence note 2
+1. Introduction 4
+2. Problem, objectives, and requirements 4
+3. Background and related work 5
+4. Architecture and data flow 7
+5. Codec implementation and pseudocode audit 8
+6. Parallel scheduling and pthread synchronization 9
+7. Testing and verification evidence 11
+8. Quantitative results and metric audit 12
+9. Theoretical performance analysis 15
+10. Limitations and future work 16
+11. Conclusion 17
+References 18
+Appendix A. Reproduction commands 20
+Page numbers are tied to this rendered version; verify them again if the document is edited or rendered with different
+fonts.
+Repository-grounded review • 3
+
+===== PAGE 4 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+1. Introduction
+Video data is costly to store and transmit, while compression must balance bit rate,
+reconstruction error, encoder complexity, and execution time. This project isolates two
+concerns that are often hidden inside production codecs: how a lossy block codec
+reconstructs its own prediction state, and how that dependency-constrained work can be
+parallelized without changing encoded output or corrupting frame order. The repository is a
+teaching implementation that makes those steps visible in C rather than a replacement for a
+standardized codec [1].
+Its input is raw, planar, 8-bit YUV420. The luma plane has full frame dimensions; the U and
+V chroma planes each have half width and half height. The command-line encoder requires
+positive width and height that are multiples of 16, a whole number of complete frames, and a
+positive optional worker count; four workers are the default. It writes a proprietary sequence
+of `FRM1` frame records. A matching decoder reconstructs raw YUV420 from that stream
+[2], [3].
+The evaluation question is not whether this system matches H.264 or JPEG quality. It is
+whether the implemented codec is internally consistent, whether legal dependencies are
+preserved by pthread scheduling, and what the checked-in measurements show for a defined
+short workload. In this framing, compression ratio and parallel speedup are workload-specific
+measurements, not evidence of general-purpose codec superiority.
+2. Problem, objectives, and requirements
+2.1 Problem statement
+Implement an end-to-end lossy transform codec whose encoder and decoder derive identical
+predictors from reconstructed samples, while allowing independent row jobs and frames to
+execute concurrently. The core correctness hazard is causal: a block may not be predicted
+until all boundary pixels it uses have been reconstructed. A second hazard is output ordering:
+worker completion order is not necessarily frame order.
+2.2 Objectives: implementation status
+Objective Status supported by source inspection
+Read and encode raw YUV420 frames Implemented; complete-frame byte count is checked before
+scheduling [2].
+Repository-grounded review • 4
+
+===== PAGE 5 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+Objective Status supported by source inspection
+Predictive block transform and quantization Implemented with 8×8 blocks, top/left reconstructed-
+boundary average, DCT-II and fixed quantization table [3].
+Entropy coding and custom frame syntax Implemented with zig-zag RLE, frame-wide Huffman
+coding and `FRM1` records [2], [3].
+Parallel worker pool and wavefront waits
+Implemented with a bounded circular queue, POSIX
+threads, mutexes, condition variables and per-plane
+progress [4], [5].
+Ordered output and matching decoder Implemented with numbered reorder slots and a separate
+decoder path [6], [7].
+JPEG/H.264 standards-compliant encoding Not implemented; repository documents a project-specific
+format [1], [2].
+2.3 Functional and non-functional requirements
+Verified functional requirements are raw YUV420 input, 8×8 block processing, encoder-side
+reconstruction, per-frame entropy coding, frame records with enough information for
+decoding, raw YUV420 output, and configurable worker count/synchronization granularity.
+The Makefile compiles C11 source with pthread support and links libm for floating-point
+math [8].
+Inferred engineering requirements include deterministic output across thread counts, bounded
+queue memory, no reads of incomplete neighbouring reconstruction, orderly shutdown, and
+error propagation. The code has checks for invalid dimensions, malformed/truncated input,
+allocation failures, and several decoder framing conditions; these should not be interpreted as
+a fuzz-tested security guarantee. FFmpeg is an optional dependency for `demo.sh` to convert
+ordinary video into raw YUV and create a displayable MP4 preview; it is not the
+implementation of the custom codec [9].
+3. Background and related work
+3.1 Transform coding and quantization
+The DCT maps spatial samples into frequency coefficients. Ahmed, Natarajan, and Rao
+established the DCT as a useful orthogonal transform for digital signal processing and
+showed rate-distortion behaviour close to the Karhunen–Loève transform for relevant signal
+models [10]. This repository applies an orthonormal 8×8 DCT-II to prediction residuals. Its
+Repository-grounded review • 5
+
+===== PAGE 6 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+two-pass implementation transforms rows then columns, reducing the arithmetic order from
+O(N⁴) for a direct two-dimensional sum to O(N³) for a separable transform.
+Quantization is lossy: each coefficient is divided by a fixed frequency-dependent integer table
+and rounded. The table in `src/codec.c` has the familiar JPEG luminance-table values, but
+using those numbers does not make the implementation JPEG-compliant. The code applies
+the table to its own residual coefficients and then uses its own RLE symbols and frame record
+format [3]. There is no quality-factor control or target-rate controller in the current interface.
+3.2 Run-length and Huffman coding
+Zig-zag scanning tends to place higher spatial frequencies later in a block, where quantization
+often creates a run of zeros. The encoder records each nonzero quantized coefficient as a pair
+containing its preceding zero count and value, plus a terminating pair for a zero tail. Huffman
+coding then assigns prefix codes using the observed frequency of each distinct pair.
+Huffman’s original minimum-redundancy construction provides the theoretical basis for this
+entropy stage [11].
+The repository favours transparent deterministic implementation over optimal data structures:
+symbol discovery and lookup use linear searches, while tree construction repeatedly scans
+active nodes. Consequently, coding overhead can become material as the frame-level
+alphabet grows. The report treats this as a scalability limitation, not as a defect in the basic
+prefix-code idea.
+3.3 Parallel video coding and causal wavefronts
+Research on H.264 decoding and HEVC wavefront parallel processing shows that coding
+dependencies constrain scaling and that scheduling overhead can limit otherwise abundant
+block-level work [12], [13]. This project borrows the general scheduling idea, not a standard-
+specific codec design: a row proceeds left-to-right, and a block waits until the block above
+has published the required reconstructed boundary. Its dependency graph is acyclic because
+edges point only to top and left neighbours. Amdahl’s analysis supplies a complementary
+warning: serial work and coordination place limits on achievable speedup as worker count
+grows [14].
+The distinction matters. H.264 specifies prediction modes and syntax; JPEG specifies
+marker-based image-coding syntax and related coding processes [15], [16]. Here a simplified
+DC-like neighbour average, a floating-point DCT, a fixed quantizer, RLE-pair Huffman
+Repository-grounded review • 6
+
+===== PAGE 7 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+coding, and `FRM1` records define a distinct educational codec. Literature is used to explain
+design principles, not to claim standards conformance.
+4. Architecture and data flow
+Figure 1. Architecture reconstructed from src/main.c, src/threadpool.c, src/wavefront.c, src/reorder.c, src/codec.c, and
+src/decode.c.
+`src/main.c` owns the encoder orchestration. For every frame, `FrameWork` stores the
+original and reconstructed YUV420 buffers, row-output slots, per-plane `WavefrontSync`
+objects, completion state, and pipeline error state. A producer submits one job per block row,
+plane, and frame. Jobs hold direct frame pointers, so workers do not need a global frame
+lookup. The queue in `src/threadpool.c` is a circular array with capacity four times the
+configured worker count and has `not_empty`/`not_full` condition variables for backpressure
+[2], [4].
+Each row worker processes its row from left to right. It writes RLE results to a deterministic
+block index, reconstructs the same block into its plane-specific reconstruction view, and
+publishes progress at the configured synchronization granularity. The last completed row
+finalizes a frame by concatenating block RLE records in plane/raster order and Huffman-
+coding that combined sequence. `src/reorder.c` owns a slot per frame and a writer thread that
+emits only the next expected frame number [2], [5], [6].
+The decoder (`src/decode.c` and `src/decode_main.c`) parses a `FRM1` record, reconstructs
+the deterministic Huffman tree from the transmitted symbol table/frequencies, decodes RLE
+pairs, restores quantized coefficient blocks, dequantizes and inverse-transforms them, and
+Repository-grounded review • 7
+
+===== PAGE 8 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+repeats the causal predictor from its own reconstruction buffer. It does not need encoder-
+private prediction values, which is essential for a genuinely decodable stream [7].
+5. Codec implementation and pseudocode audit
+5.1 Encoder block path
+The production path in `encode_plane_row()` is the implementation reference for the report
+pseudocode [2]. It obtains the current plane’s source and reconstruction pointers, creates a
+`Frame` view whose dimensions match that plane, waits on the wavefront dependency,
+predicts a scalar boundary average, subtracts it from each source pixel, applies
+`dct_transform()`, quantizes, RLE-encodes, saves the pairs, and calls `reconstruct_block()`
+before publishing progress. The reconstruction function dequantizes the quantized
+coefficients, calls the inverse DCT, adds the predictor, rounds, clips to [0, 255], and writes
+the plane reconstruction buffer [3].
+for each plane (Y, U, V):
+for each block row r and each frame f:
+submit row-job(f, plane, r)
+worker(row-job):
+for column c from left to right:
+wait until r == 0 or progress[r - 1] > c
+p = mean(available reconstructed top and left boundaries)
+residual = source_block - p
+q = quantize(DCT(residual))
+store zigzag-RLE(q) in its frame/block slot
+recon_block = clip(p + IDCT(dequantize(q)), 0, 255)
+write recon_block before publishing row progress
+decrement this frame's outstanding-row count
+if final row: concatenate all block pairs, Huffman-code, submit frame
+writer: emit only the next expected frame-number slot
+The pseudocode matches the main control flow, with two clarifications that prevent common
+overstatements. First, entropy coding is frame-wide and happens only after all plane rows for
+that frame finish; it is not a separate Huffman stream per block. Second, the code schedules
+rows as jobs, while the row job performs a sequential column loop gated by a top-row
+progress condition. This is row-job wavefront scheduling, not a global queue of independent
+block jobs.
+5.2 Predictor, boundaries, and reconstruction consistency
+For the top-left block, the predictor is 128. For blocks with one available neighbour, it
+averages the eight reconstructed samples along that boundary. For interior blocks, it averages
+the eight top-boundary samples and eight left-boundary samples together using integer
+Repository-grounded review • 8
+
+===== PAGE 9 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+arithmetic. It reads reconstructed values, not source pixels: otherwise the encoder would use
+information unavailable to the decoder and predictor drift would make later residuals decode
+incorrectly [3].
+The block is reconstructed immediately after quantization and before a progress update. In
+this program, progress is therefore more than a task-completion flag: it promises that the
+samples a dependent row may read have been written. The default
+`SYNC_GRANULARITY=1` publishes after each block; larger values delay visibility until a
+group boundary and may reduce available wavefront width [5], [8].
+5.3 Frame syntax and standards claim audit
+The writer serializes the four-byte `FRM1` marker, frame number, block count, Huffman
+symbol count, coded bit count, each symbol/frequency entry, and the packed payload in big-
+endian integer order [3], [6]. This is sufficient for the paired decoder’s project-specific
+contract, but it is not JPEG marker syntax, an H.264 NAL-unit bitstream, or an MP4
+container. No standard decoder compatibility is established.
+The `demo.sh` script invokes FFmpeg around the custom encoder: it extracts YUV420 input,
+runs the custom binary, decodes the custom file, and may wrap the decoded result as an
+H.264 MP4 preview for ordinary playback [9]. An H.264 preview container is not evidence
+that the custom encoder implements H.264. Likewise, use of DCT, zig-zag, Huffman coding,
+and a JPEG-like quantization table is not sufficient evidence of JPEG conformance [15], [16].
+6. Parallel scheduling and pthread synchronization
+6.1 Queue and worker lifecycle
+The queue’s head, tail, and count are guarded by a mutex. A consumer checks emptiness in a
+`while` loop and sleeps on `not_empty`; after removing a job, it signals `not_full`. Producers
+wait while the queue is full, then enqueue and signal a consumer [4]. On normal shutdown,
+`threadpool_destroy()` queues one sentinel per worker, joins the workers, destroys the
+condition variables and mutex, and frees the queue. This separates work submission from the
+worker lifecycle and bounds the number of queued jobs.
+Repository-grounded review • 9
+
+===== PAGE 10 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+6.2 Wavefront correctness
+Figure 2. Illustrative block grid. A block can run after its top dependency is published; left dependency is satisfied by the
+row worker’s left-to-right traversal.
+For block (r,c), `wavefront_wait_for_dependency()` waits while `row_progress[r-1] <= c`,
+under the same mutex used by `wavefront_mark_done()` to update progress. The `while`
+predicate is necessary because a condition-variable wakeup does not prove that the specific
+row/column dependency is now satisfied. The first row bypasses the wait. Once
+reconstruction is complete, `wavefront_mark_done()` stores at least c+1 and broadcasts on
+the shared condition variable [5].
+A broadcast is deliberate because many rows share one condition variable but have different
+eligibility predicates. A signal could wake a row that is still ineligible while another eligible
+row remains asleep. Broadcast makes all waiters reevaluate their own predicates, at the cost
+of unnecessary wakeups and possible thundering-herd behaviour. The mutex protects the
+progress value and makes the predicate check/update atomic relative to waiters; the condition
+wait releases and reacquires the mutex as specified by POSIX [17].
+Repository-grounded review • 10
+
+===== PAGE 11 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+6.3 Ordered frames and lifetime
+Frames can finish out of order. Each completed frame transfers ownership of its encoded
+bitstream to a numbered reorder slot. The writer waits until
+`slots[next_expected_frame].ready`, removes that bitstream under the reorder mutex,
+advances the expected index, and writes it outside the critical section. The design decouples
+processing completion from output order [6]. The encoder currently reads all input frames
+into memory before creating the pool, so whole-file memory use scales with input duration;
+the reorder slots also scale with frame count. This is correctness-friendly for the short
+benchmark but limits streaming scalability.
+7. Testing and verification evidence
+7.1 Evidence categories
+Evidence class What can be stated
+Source-verified
+The source includes unit/integration test targets for frame
+reading, DCT, prediction, reconstruction, entropy, wavefront,
+row encoding and the thread pool; `make test` also executes a
+32×32 encode/decode and size check [8].
+CSV-verified arithmetic
+The checked-in CSV timing samples, averages, speedups,
+compressed output sizes, ratios and space-saving percentages
+reconcile to the formulas in Section 8 [18]–[20].
+Repository-reported, not rerun here
+The project markdown reports warning-clean Clang/GCC
+builds, byte-identical outputs across worker counts, production
+round-trip byte size, PSNR, and clean Helgrind runs [1], [21].
+Not independently reproducible from accessible artifacts
+The public artifacts inspected do not include the production
+input/output YUV files or per-plane PSNR samples needed to
+recompute the 1280×720 quality result. The granularity CSV
+retains averages but not individual timed samples.
+7.2 Static validation performed for this report
+I traced the encoder, codec primitives, worker pool, wavefront state, reorder writer, decoder
+and Makefile through the current public `main` branch. I also read the benchmark harness
+and all three retained CSVs used by `benchmark/plot_results.py`, recalculated the key ratios
+and performance measures independently, and checked bibliographic metadata for the cited
+DCT, Huffman, parallel video coding, POSIX and standards sources. These checks validate
+source-level descriptions and arithmetic; they do not reproduce runtime behaviour.
+A shell `git clone` attempt failed because the environment could not resolve `github.com`.
+Consequently, this audit did not compile the current source, execute `make test`, run
+Repository-grounded review • 11
+
+===== PAGE 12 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+`benchmark/benchmark_encoder.sh`, open actual video output, or rerun Valgrind/Helgrind.
+The report does not claim those actions occurred. The benchmark and race-detector results
+below are reported as repository-retained/documented observations, not new experimental
+results from this session.
+7.3 Test coverage and gaps
+The test targets cover important algorithmic units and concurrency transitions. The project
+markdown states that randomized wavefront waits were run repeatedly, row encoding was
+compared with a plain traversal, and one-, two- and four-worker outputs were compared with
+a serial baseline [1]. Such deterministic comparisons are strong checks against schedule-
+dependent output changes, while dynamic race analysis provides additional evidence for
+executed paths. Neither finite test repetitions nor a clean race-detector run proves correctness
+for every possible input, scheduling interleaving, allocation failure or malformed bitstream.
+The most material outstanding evidence is a reproducible production-scale command bundle:
+exact compiler and flags, the complete raw test input, the actual binary hash/configuration
+macros, individual runs for the synchronization campaign, and the decoded output used for
+PSNR. Those artefacts would allow a second reviewer to reproduce both the numbers and the
+quality calculation rather than rely on documentation.
+8. Quantitative results and metric audit
+8.1 Original thread-count benchmark
+The retained `benchmark/results_1280x720.csv` contains five timed values for each worker
+count and a stored average/speedup row. It is described by the plot script as three 1280×720
+YUV420 frames, five timed runs per point; the benchmark harness supports one untimed
+warm-up followed by the chosen number of measured runs [18], [19]. The recorded times
+include the complete encoder invocation, rather than isolated DCT time.
+Workers Five timed samples (s) Mean (s) Speedup Efficiency
+1 0.51, 0.56, 0.56, 0.54,
+0.53 0.540 1.000× 100.0%
+2 0.29, 0.28, 0.25, 0.25,
+0.25 0.264 2.045× 102.3%
+4 0.13, 0.18, 0.19, 0.20,
+0.24 0.188 2.872× 71.8%
+8 0.17, 0.16, 0.14, 0.14, 0.150 3.600× 45.0%
+Repository-grounded review • 12
+
+===== PAGE 13 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+Workers Five timed samples (s) Mean (s) Speedup Efficiency
+0.14
+Figure 3. Speedup recomputed from the means in results_1280x720.csv; dashed line is ideal linear speedup, not a
+prediction.
+Definitions: speedup S_p = T_1 / T_p; parallel efficiency E_p = S_p / p × 100%.
+Recalculation gives 0.540/0.264 = 2.045, 0.540/0.188 = 2.872, and 0.540/0.150 = 3.600.
+Dividing by worker count yields 102.3%, 71.8%, and 45.0%. The two-worker value above
+100% is arithmetically correct but should be interpreted as short-run measurement/timing
+variation (and possible cache effects), not evidence of superlinear scalable work. The four-
+worker samples vary from 0.13 to 0.24 s, so a rounded mean by itself hides substantial
+variability.
+8.2 Compression and space saving
+The retained `benchmark/results_prediction_comparison.csv` uses the same 4,147,200-byte
+input for both rows [20]. Compression ratio is defined here as original bytes divided by
+compressed bytes. Space saving is 100 × (1 − compressed bytes/original bytes); it is not the
+same as the ratio.
+Configuration Input bytes Output bytes Ratio:
+input/output Output / input Space saved
+Causal prediction
+enabled 4,147,200 105,453 39.3275:1
+(39.33:1) 2.5428% 97.4572%
+Prediction disabled
+(constant 128) 4,147,200 150,083 27.6327:1
+(27.63:1) 3.6189% 96.3811%
+Repository-grounded review • 13
+
+===== PAGE 14 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+Arithmetic audit: 4,147,200 / 105,453 = 39.327473; 4,147,200 / 150,083 = 27.632710. The
+prediction-enabled output is 105,453 / 4,147,200 = 2.5428% of input, so space saving is
+97.4572%. Prediction saves 150,083 − 105,453 = 44,630 output bytes relative to the
+fixed-128 configuration. Relative to that larger output, the reduction is 44,630 / 150,083 =
+29.74%. This is a comparison for one retained three-frame input, not a universal compression
+gain.
+8.3 Later synchronization-granularity campaign
+Granularity 1 worker (s) 2 workers (s) 4 workers (s) 8 workers (s)
+1 block 0.488 0.252 0.162 0.132
+2 blocks 0.488 0.254 0.190 0.136
+4 blocks 0.482 0.250 0.182 0.138
+These figures are from `benchmark/results_granularity_comparison.csv` and a separate
+campaign; they must not be substituted for or averaged with the original times above [21]. At
+four workers, granularity 1 is (0.190 − 0.162)/0.190 = 14.7% faster than granularity 2 and
+(0.182 − 0.162)/0.182 = 11.0% faster than granularity 4. At eight workers, the corresponding
+improvements are 2.9% and 4.3%. The retained file contains only the average seconds, not
+individual runs or run counts, so it supports these arithmetic comparisons but does not expose
+confidence intervals or variance. The improvement is plausible because early publication
+makes ready blocks visible sooner, but its statistical stability cannot be assessed from the
+CSV alone.
+8.4 PSNR and output correctness
+The repository report documents Y = 39.27 dB, U = 38.50 dB, V = 36.42 dB and overall
+PSNR = 38.53 dB for three 1280×720 frames [1], [21]. These values are attributed to
+repository-reported evaluation, not a fresh calculation in this audit. The retained
+timing/compression CSVs do not contain plane-wise mean-squared errors, original/decoded
+sample data, or an overall PSNR calculation; therefore, the values could not be independently
+reconstructed in this environment. PSNR describes sample-domain distortion and should not
+be presented as a subjective-quality study.
+Repository-grounded review • 14
+
+===== PAGE 15 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+9. Theoretical performance analysis
+9.1 Transform work and block counts
+For an N×N DCT, direct evaluation computes N² outputs, each summing N² input
+contributions, which is O(N⁴). The separable row/column implementation performs 2N one-
+dimensional transforms, each with N² terms, or O(N³). At N = 8 this is 4,096 versus 1,024
+multiply-accumulate terms in the core transform arithmetic, a nominal fourfold reduction.
+This count excludes basis construction, memory movement and function overhead.
+`build_dct_basis()` is called by both the forward and inverse transform, so recomputing the
+cosine basis for each block adds avoidable work; precomputing a shared immutable basis is a
+credible optimization [3].
+For an image of W×H samples in YUV420, the number of 8×8 blocks is WH/64 for Y plus
+two planes of (WH/4)/64, totalling 3WH/128. At 1280×720 this equals 21,600 blocks per
+frame: 14,400 luma blocks and 3,600 each for U and V. Three frames therefore process
+64,800 blocks. Per-block transform, quantization, RLE and reconstruction are O(8²), while
+the current frame Huffman preparation uses linear scans; if M is the number of RLE pairs and
+S the number of distinct symbols, symbol counting can approach O(MS) and active-node
+selection O(S²) [3].
+9.2 Wavefront critical path and average parallelism
+For one plane with R block rows and C columns, there are RC block operations. Under a
+simple unit-cost DAG model with only top and left dependencies, the critical path comprises
+R + C − 1 diagonal steps. The average-parallelism ceiling RC/(R + C − 1) is therefore about
+57.8 for luma (R = 90, C = 160) and about 29.0 for each chroma plane (R = 45, C = 80).
+These are theoretical task-graph averages assuming unlimited processors and zero
+scheduling/synchronization cost, not attainable speedup claims. The implementation
+schedules whole rows and uses finite workers, and also pays for setup, frame-wide Huffman
+coding, queue operations, output ordering and file I/O.
+The diagonal wavefront begins narrow, widens as upper rows make progress, and narrows
+again at the far edge. This ramp-up/ramp-down profile plus synchronization and serial work
+explains why the measured eight-worker speedup (3.60×) falls well below ideal 8×.
+Amdahl’s law captures the general ceiling from serial portions [14], but fitting a single serial
+Repository-grounded review • 15
+
+===== PAGE 16 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+fraction to this short, noisy run would overstate model precision. The evidence supports
+diminishing returns, not a universal scalability curve.
+10. Limitations and future work
+10.1 Verified and evidence-related limitations
+ The encoder requires raw YUV420 and dimensions divisible by 16; normal compressed
+video requires an external conversion/preview path.
+ All frames are loaded before jobs are submitted, and reorder slots are allocated per input
+frame. Memory therefore grows with clip duration rather than a bounded streaming
+window.
+ Frames are independently coded; there is no motion estimation, inter-frame prediction,
+rate control, target bit rate or standard container support.
+ The fixed quantizer and the use of one table for Y/U/V constrain quality control; PSNR
+alone cannot establish subjective visual quality.
+ Linear Huffman-symbol searches and repeated tree-node scans may become expensive on
+larger or more varied inputs; transform bases are also recomputed frequently.
+ The original timings use a very short workload and coarse time resolution. Granularity
+results are means-only in the retained CSV, and performance claims are from one
+platform/corpus.
+ The accessible retained data did not allow independent recomputation of the production
+PSNR or re-execution of tests/Helgrind in this audit.
+10.2 Recommended improvements
+First, retain a reproducible experiment bundle: raw input clip, decoded output, commands,
+compiler version/flags, macro settings, executable hash, and per-run timing samples for every
+campaign. Include the exact number of runs and report mean, median, standard deviation and
+preferably confidence intervals for short timings. Use a monotonic high-resolution timer and
+repeat longer clips or multiple content classes to reduce timing quantization.
+Second, reduce redundant work by precomputing the DCT basis and replacing linear
+Huffman symbol lookup with a hash table and the minimum-node scan with a priority queue.
+Profile before implementing, because the small current workload may be dominated by setup
+or I/O. Third, introduce a bounded streaming frame window with explicit lifetime/accounting
+around row jobs and reorder slots; retain strict output order and the serial output baseline as
+regression criteria.
+Fourth, broaden validation: malformed/truncated `FRM1` inputs, extreme dimensions and
+allocation failures, randomized image statistics, longer frame sequences, varied worker
+Repository-grounded review • 16
+
+===== PAGE 17 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+counts and synchronization granularities, and repeated race-detection runs. If standards
+interoperability becomes an objective, replace the custom format and simplified coding path
+with a standards-conformant implementation or a well-tested codec library rather than
+extending the claim based on shared primitives.
+11. Conclusion
+The inspected source implements a self-contained educational lossy YUV420 codec with an
+8×8 separable DCT, fixed quantization, zig-zag RLE, per-frame Huffman coding and a
+custom `FRM1` record format. Its key parallel design is internally coherent at source level:
+row workers process columns in causal order, use reconstructed top/left boundaries, guard
+wavefront progress with a mutex, wait in predicate loops, and publish after reconstruction;
+the reorder writer preserves frame-number order even when workers finish out of order.
+These are project-specific mechanisms, not JPEG or H.264 conformance.
+The benchmark CSVs substantiate the stated means and the compression arithmetic. On the
+documented short input, 8 workers reached 3.60× speedup with 45.0% efficiency, while
+causal prediction reduced compressed size by 29.74% relative to the constant-128 version.
+The separate granularity averages favour per-block publication at 4 and 8 workers, but they
+lack per-run samples. The claimed PSNR, compiler, test and Helgrind observations remain
+repository-reported rather than independently reproduced here. The strongest next step is not
+a broader performance claim but a reproducible evidence bundle, followed by longer multi-
+content benchmarks and memory/performance improvements.
+Repository-grounded review • 17
+
+===== PAGE 18 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+References
+[1] A. Aroohhiiii, “Multithreaded Video Compressor: Day 18 Final Report,” project repository, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/DAY18_REPORT.md
+[2] A. Aroohhiiii, “src/main.c,” Multithreaded Video Compressor, project source, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/src/main.c
+[3] A. Aroohhiiii, “src/codec.c” and “src/codec.h,” Multithreaded Video Compressor, project source, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/tree/main/src
+[4] A. Aroohhiiii, “src/threadpool.c,” Multithreaded Video Compressor, project source, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/src/threadpool.c
+[5] A. Aroohhiiii, “src/wavefront.c,” Multithreaded Video Compressor, project source, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/src/wavefront.c
+[6] A. Aroohhiiii, “src/reorder.c,” Multithreaded Video Compressor, project source, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/src/reorder.c
+[7] A. Aroohhiiii, “src/decode.c,” Multithreaded Video Compressor, project source, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/src/decode.c
+[8] A. Aroohhiiii, “Makefile,” Multithreaded Video Compressor, project build and test targets, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/Makefile
+[9] A. Aroohhiiii, “demo.sh,” Multithreaded Video Compressor, optional FFmpeg demonstration wrapper, accessed 10 Oct.
+2026. https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/demo.sh
+[10] N. Ahmed, T. Natarajan, and K. R. Rao, “Discrete Cosine Transform,” IEEE Transactions on Computers, vol. C-23, no.
+1, pp. 90–93, Jan. 1974, doi: 10.1109/T-C.1974.223784.
+[11] D. A. Huffman, “A Method for the Construction of Minimum-Redundancy Codes,” Proceedings of the IRE, vol. 40, no.
+9, pp. 1098–1101, Sep. 1952, doi: 10.1109/JRPROC.1952.273898.
+[12] M. Alvarez Mesa, A. Ramírez, A. Azevedo, C. Meenderinck, B. H. H. Juurlink, and M. Valero, “Scalability of
+Macroblock-level Parallelism for H.264 Decoding,” in Proc. 15th IEEE Int. Conf. on Parallel and Distributed Systems
+(ICPADS), 2009, pp. 236–243, doi: 10.1109/ICPADS.2009.124.
+[13] C.-C. Chi et al., “Parallel Scalability and Efficiency of HEVC Parallelization Approaches,” IEEE Transactions on
+Circuits and Systems for Video Technology, vol. 22, no. 12, pp. 1827–1838, 2012, doi: 10.1109/TCSVT.2012.2223056.
+[14] G. M. Amdahl, “Validity of the Single Processor Approach to Achieving Large Scale Computing Capabilities,” in Proc.
+AFIPS Spring Joint Computer Conference, 1967, pp. 483–485, doi: 10.1145/1465482.1465560.
+[15] ITU-T, “Recommendation T.81: Information Technology—Digital Compression and Coding of Continuous-tone Still
+Images—Requirements and Guidelines,” Sep. 1992. https://www.itu.int/rec/T-REC-T.81
+[16] ITU-T, “Recommendation H.264: Advanced Video Coding for Generic Audiovisual Services,” Aug. 2021 edition.
+https://www.itu.int/rec/T-REC-H.264-202108-S
+[17] The Open Group, “pthread_cond_broadcast, pthread_cond_signal,” The Open Group Base Specifications, Issue 7, 2018
+edition. https://pubs.opengroup.org/onlinepubs/9699919799/functions/pthread_cond_broadcast.html
+[18] A. Aroohhiiii, “benchmark/benchmark_encoder.sh,” Multithreaded Video Compressor, accessed 10 Oct. 2026.
+https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/benchmark/benchmark_encoder.sh
+[19] A. Aroohhiiii, “benchmark/results_1280x720.csv,” retained original thread-count timing samples, accessed 10 Oct.
+2026. https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/benchmark/results_1280x720.csv
+[20] A. Aroohhiiii, “benchmark/results_prediction_comparison.csv,” retained prediction ablation data, accessed 10 Oct.
+2026. https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/benchmark/
+results_prediction_comparison.csv
+[21] A. Aroohhiiii, “benchmark/results_granularity_comparison.csv,” retained synchronization-granularity averages,
+accessed 10 Oct. 2026. https://github.com/aaroohhiiii/Multithreaded-Video-Compressor/blob/main/benchmark/
+results_granularity_comparison.csv
+Repository-grounded review • 18
+
+===== PAGE 19 =====
+MULTITHREADED VIDEO COMPRESSOR | TECHNICAL REPORT
+Appendix A. Reproduction commands and interpretation
+The commands below are documented by the repository. They are provided for
+reproducibility and were not executed during this audit.
+make clean
+make
+make test
+# Run five timed samples after one warm-up per worker count:
+benchmark/benchmark_encoder.sh input.yuv 1280 720 5 benchmark/results.csv
+# Synchronization-granularity experiment: each build must be clean.
+make clean && make SYNC_GRANULARITY=2
+make clean && make SYNC_GRANULARITY=4
+# Prediction ablation; rebuild all objects with the same macro.
+make clean && make PREDICTION=0
+Before comparing results, record the exact input byte size, compiler and flags,
+`SYNC_GRANULARITY`, `PREDICTION`, worker count, timing command, run count, and
+executable hash. The timing script does not rebuild the binary itself; therefore, a CSV by
+itself cannot prove which compile-time settings were present when it was generated. For
+quality measurements, retain both input and decoded YUV420 files and the precise PSNR
+tool invocation, so overall and plane-wise PSNR can be independently recalculated.
+Repository-grounded review • 19

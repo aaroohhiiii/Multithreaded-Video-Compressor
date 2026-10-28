@@ -10,6 +10,7 @@ struct ThreadPool {
     JobQueue queue;
 };
 
+/* Allocates and initializes the bounded circular job queue. */
 static int queue_init(JobQueue *queue, size_t capacity)
 {
     int result;
@@ -51,6 +52,7 @@ static int queue_init(JobQueue *queue, size_t capacity)
     return 0;
 }
 
+/* Destroys the queue synchronization objects and frees its storage. */
 static int queue_destroy(JobQueue *queue)
 {
     int not_empty_result;
@@ -66,6 +68,7 @@ static int queue_destroy(JobQueue *queue)
            not_full_result != 0 ? not_full_result : mutex_result;
 }
 
+/* Adds a job, waiting when the bounded queue is full. */
 int queue_push(JobQueue *queue, Job job)
 {
     int result;
@@ -94,6 +97,7 @@ int queue_push(JobQueue *queue, Job job)
     return result != 0 ? result : unlock_result;
 }
 
+/* Removes a job, waiting when the queue is empty. */
 int queue_pop(JobQueue *queue, Job *job)
 {
     int result;
@@ -123,6 +127,7 @@ int queue_pop(JobQueue *queue, Job *job)
     return result != 0 ? result : unlock_result;
 }
 
+/* Repeatedly takes and executes jobs until a shutdown sentinel arrives. */
 static void *worker_loop(void *argument)
 {
     ThreadPool *pool = argument;
@@ -144,6 +149,7 @@ static void *worker_loop(void *argument)
     }
 }
 
+/* Creates the queue and starts the requested number of worker threads. */
 ThreadPool *threadpool_create(int num_threads)
 {
     ThreadPool *pool;
@@ -201,6 +207,7 @@ ThreadPool *threadpool_create(int num_threads)
     return pool;
 }
 
+/* Submits one normal job to the worker pool. */
 int threadpool_submit(ThreadPool *pool, Job job)
 {
     if (pool == NULL || job.shutdown) {
@@ -209,6 +216,7 @@ int threadpool_submit(ThreadPool *pool, Job job)
     return queue_push(&pool->queue, job);
 }
 
+/* Sends shutdown jobs, joins every worker, and frees the pool. */
 int threadpool_destroy(ThreadPool *pool)
 {
     int first_error = 0;
@@ -244,6 +252,7 @@ int threadpool_destroy(ThreadPool *pool)
     return first_error;
 }
 
+/* Creates an 8x8 prediction block filled with one value. */
 static Block flat_prediction(int value)
 {
     Block prediction;
@@ -258,6 +267,7 @@ static Block flat_prediction(int value)
     return prediction;
 }
 
+/* Exercises the complete luma row codec path used by tests and simple jobs. */
 int encode_row(Frame *frame, int row, WavefrontSync *sync)
 {
     uint8_t *orig;

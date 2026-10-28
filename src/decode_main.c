@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+/* Parses and validates a frame dimension from the command line. */
 static int parse_dimension(const char *text, int *value)
 {
     char *end;
@@ -20,6 +21,7 @@ static int parse_dimension(const char *text, int *value)
     return 1;
 }
 
+/* Opens decoder files, runs the decoder, and reports the frame count. */
 int main(int argc, char **argv)
 {
     FILE *input;

@@ -34,6 +34,7 @@ typedef struct FrameWork {
     PipelineState *pipeline;
 } FrameWork;
 
+/* Parses a command-line argument as a positive integer. */
 static int parse_positive(const char *text, int *value)
 {
     char *end;
@@ -49,6 +50,7 @@ static int parse_positive(const char *text, int *value)
     return 1;
 }
 
+/* Creates an 8x8 prediction block filled with one value. */
 static Block flat_prediction(int value)
 {
     Block block;
@@ -63,6 +65,7 @@ static Block flat_prediction(int value)
     return block;
 }
 
+/* Records the first pipeline error and stops the reorder writer. */
 static void pipeline_fail(PipelineState *pipeline, int error_code)
 {
     pthread_mutex_lock(&pipeline->mutex);
@@ -73,6 +76,7 @@ static void pipeline_fail(PipelineState *pipeline, int error_code)
     pthread_mutex_unlock(&pipeline->mutex);
 }
 
+/* Releases all memory and synchronization objects owned by one frame. */
 static void destroy_frame_work(FrameWork *work)
 {
     int index;
@@ -92,6 +96,7 @@ static void destroy_frame_work(FrameWork *work)
     free(work);
 }
 
+/* Combines a frame's RLE blocks, Huffman-encodes them, and submits the frame. */
 static int finalize_frame(FrameWork *work)
 {
     RLEPair *all_pairs;
@@ -130,6 +135,7 @@ static int finalize_frame(FrameWork *work)
     return result;
 }
 
+/* Compresses and reconstructs one block row from a Y, U, or V plane. */
 static int encode_plane_row(FrameWork *work, FramePlane plane, int block_row)
 {
     Frame view;
@@ -216,6 +222,7 @@ static int encode_plane_row(FrameWork *work, FramePlane plane, int block_row)
     return 0;
 }
 
+/* Runs one production row job and finalizes the frame after its last row. */
 static void encode_pipeline_row(Job *job)
 {
     FrameWork *work = job->context;
@@ -241,6 +248,7 @@ static void encode_pipeline_row(Job *job)
     }
 }
 
+/* Reads and allocates all state needed to process one input frame. */
 static FrameWork *create_frame_work(FILE *input, int frame_number,
                                     int width, int height,
                                     PipelineState *pipeline)
@@ -299,6 +307,7 @@ static FrameWork *create_frame_work(FILE *input, int frame_number,
     return work;
 }
 
+/* Validates input and coordinates the complete multithreaded encoder. */
 int main(int argc, char **argv)
 {
     FILE *input = NULL;

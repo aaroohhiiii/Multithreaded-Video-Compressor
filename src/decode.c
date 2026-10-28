@@ -14,6 +14,7 @@ typedef struct DecodeNode {
     int active;
 } DecodeNode;
 
+/* Recreates the deterministic Huffman tree from transmitted frequencies. */
 static int build_huffman_tree(const uint32_t *frequencies,
                               size_t symbol_count, DecodeNode **tree)
 {
@@ -72,6 +73,7 @@ static int build_huffman_tree(const uint32_t *frequencies,
     return 1;
 }
 
+/* Expands packed Huffman bits back into the original sequence of RLE pairs. */
 int huffman_decode(const HuffmanBitstream *input, RLEPair **output,
                    size_t *output_count)
 {
@@ -156,6 +158,7 @@ failure:
     return 0;
 }
 
+/* Expands RLE pairs and reverses zig-zag order into an 8x8 block. */
 int rle_decode(const RLEPair *input, size_t input_count,
                size_t *pairs_consumed,
                int output[DCT_BLOCK_SIZE][DCT_BLOCK_SIZE])
@@ -216,6 +219,7 @@ int rle_decode(const RLEPair *input, size_t input_count,
     return 1;
 }
 
+/* Reads one big-endian 32-bit integer from the compressed stream. */
 static int read_u32(FILE *input, uint32_t *value)
 {
     uint8_t bytes[4];
@@ -230,6 +234,7 @@ static int read_u32(FILE *input, uint32_t *value)
     return 1;
 }
 
+/* Reads one big-endian 64-bit integer from the compressed stream. */
 static int read_u64(FILE *input, uint64_t *value)
 {
     uint8_t bytes[8];
@@ -248,6 +253,7 @@ static int read_u64(FILE *input, uint64_t *value)
     return 1;
 }
 
+/* Reads the header, Huffman table, and payload for one FRM1 record. */
 static int read_frame_record(FILE *input, int *frame_number,
                              uint32_t *block_count,
                              HuffmanBitstream *bitstream)
@@ -311,6 +317,7 @@ static int read_frame_record(FILE *input, int *frame_number,
     return 1;
 }
 
+/* Reconstructs every 8x8 block in one decoded Y, U, or V plane view. */
 static int decode_plane(Frame *frame, RLEPair *pairs, size_t pair_count,
                         size_t *pair_index, uint32_t *blocks_decoded)
 {
@@ -371,6 +378,7 @@ static int decode_plane(Frame *frame, RLEPair *pairs, size_t pair_count,
     return 1;
 }
 
+/* Decodes every FRM1 record and writes reconstructed raw YUV420 frames. */
 int decode_stream(FILE *input, FILE *raw_output, int width, int height)
 {
     Frame decoded = {.width = width, .height = height};
